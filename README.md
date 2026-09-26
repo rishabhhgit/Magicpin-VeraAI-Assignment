@@ -9,6 +9,7 @@ no wall-clock reads (the dataset's `today` is the reference clock unless `now` i
 python3 bot.py                      # serves on $PORT (default 8080)
 curl localhost:8080/v1/healthz
 python3 tests/test_engine.py        # 22 tests: composer, reply engine, HTTP contract
+python3 tests/test_deploy.py        # 8 tests: WSGI adapter + KV store cold-start
 python3 tools/make_submission.py    # regenerates submission.jsonl (30 canonical pairs)
 python3 tools/rubric_lint.py        # deterministic lint of all 5 judge dimensions
 python3 tools/run_judge.py          # official LLM judge (key via env or .groq_key)
@@ -18,6 +19,23 @@ Endpoints: `POST /v1/context`, `POST /v1/tick`, `POST /v1/reply`, `GET /v1/healt
 `GET /v1/metadata`, `POST /v1/teardown`. `bot.compose(category, merchant, trigger,
 customer)` is the brief's entry point; `conversation_handlers.respond(state, msg)`
 demonstrates multi-turn handling on top of the same engine.
+
+## Deploy (Vercel)
+
+Import the repo with framework preset **Other** (no build command). `api/*.py` +
+`vercel.json` expose the same six endpoints; `vera/wsgi.py` adapts them to the
+runtime, and `vera/persistent.py` moves state into KV.
+
+| Env var | Needed | Purpose |
+|---|---|---|
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | **yes, for state** | Vercel KV (or Upstash `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`) — persists contexts, suppression keys and conversations across cold starts. Create the store in *Storage*, attach it to the project and Vercel injects both automatically. Without them the bot still runs, but a fresh instance won't see what an earlier one stored. |
+| `VERA_TEAM_NAME`, `VERA_TEAM_MEMBERS`, `VERA_MODEL`, `VERA_CONTACT_EMAIL` | no | identity returned by `GET /v1/metadata` |
+| `VERA_QUIET=1` | no | silence request logs |
+| `HOST`, `PORT` | no | provided by Vercel |
+
+Judge keys (`GROQ_API_KEY`, `JUDGE_*`) stay local — the judge runs on your machine
+against `BOT_URL=https://<app>.vercel.app` (or `https://<app>.vercel.app/api` if you
+call the functions directly).
 
 ## Approach
 
@@ -68,9 +86,9 @@ it can't source from the contexts.
 
 ## Files
 
-`bot.py` (HTTP + tick/reply orchestration) · `vera/compose.py` (per-kind handlers) ·
-`vera/reply_engine.py` (multi-turn) · `vera/store.py` (state) · `vera/ground.py`,
-`vera/voice.py`, `vera/util.py` (facts, sanitisation, formatting) ·
-`tests/test_engine.py` · `tools/make_submission.py` · `tools/rubric_lint.py` ·
-`tools/run_judge.py` · `submission.jsonl` ·
-`conversation_handlers.py` (optional multi-turn demo).
+`bot.py` (stdlib HTTP server) · `vera/api.py` (shared dispatch + tick/reply logic) ·
+`vera/compose.py` (per-kind handlers) · `vera/reply_engine.py` (multi-turn) ·
+`vera/store.py` (state) + `vera/persistent.py`/`vera/kv.py` (KV persistence) ·
+`vera/wsgi.py` + `api/` (Vercel functions) · `vera/ground.py`, `vera/voice.py`,
+`vera/util.py` (facts, sanitisation, formatting) · `tests/` · `tools/` ·
+`submission.jsonl` · `conversation_handlers.py` (optional multi-turn demo).
