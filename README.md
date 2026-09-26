@@ -10,6 +10,8 @@ python3 bot.py                      # serves on $PORT (default 8080)
 curl localhost:8080/v1/healthz
 python3 tests/test_engine.py        # 22 tests: composer, reply engine, HTTP contract
 python3 tools/make_submission.py    # regenerates submission.jsonl (30 canonical pairs)
+python3 tools/rubric_lint.py        # deterministic lint of all 5 judge dimensions
+python3 tools/run_judge.py          # official LLM judge (key via env or .groq_key)
 ```
 
 Endpoints: `POST /v1/context`, `POST /v1/tick`, `POST /v1/reply`, `GET /v1/healthz`,
@@ -69,5 +71,6 @@ it can't source from the contexts.
 `bot.py` (HTTP + tick/reply orchestration) · `vera/compose.py` (per-kind handlers) ·
 `vera/reply_engine.py` (multi-turn) · `vera/store.py` (state) · `vera/ground.py`,
 `vera/voice.py`, `vera/util.py` (facts, sanitisation, formatting) ·
-`tests/test_engine.py` · `tools/make_submission.py` · `submission.jsonl` ·
+`tests/test_engine.py` · `tools/make_submission.py` · `tools/rubric_lint.py` ·
+`tools/run_judge.py` · `submission.jsonl` ·
 `conversation_handlers.py` (optional multi-turn demo).

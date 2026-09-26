@@ -959,6 +959,15 @@ def h_recall(ctx):
     due_date = payload.get("due_date")
     months = months_between(k.get("last_visit"), ctx.now_dt)
     months = months if months and months > 0 else None
+    days = days_between(k.get("last_visit"), ctx.now_dt)
+    if months:
+        gap_en = f" — {months} month{'' if months == 1 else 's'} since your last visit"
+        gap_hi = f" — pichhli visit se {months} month{'' if months == 1 else 's'}"
+    elif days and days > 3:
+        gap_en = f" — {days} days since your last visit"
+        gap_hi = f" — pichhli visit se {days} days"
+    else:
+        gap_en = gap_hi = ""
     slots = G.slot_labels(payload)
 
     usual = humanize(k.get("slots") or "weekday evening").replace("_", " ")
@@ -973,26 +982,23 @@ def h_recall(ctx):
     if slots and len(slots) >= 2:
         s1, s2 = slots[0], slots[1]
         if lang == "en":
-            body = (f"{opener} Your {service_txt or noun} is due"
-                    f"{f' — {months} months since your last visit' if months else ''}. "
+            body = (f"{opener} Your {service_txt or noun} is due{gap_en}. "
                     f"Two slots are open: {s1} or {s2}. "
                     f"Reply 1 for {s1}, 2 for {s2}, or tell us a time that works.")
         else:
-            body = (f"{opener} Apki {service_txt or noun} ka time ho gaya"
-                    f"{f' — pichhli visit se {months} months' if months else ''}. "
+            body = (f"{opener} Aapki {service_txt or noun} ka time ho gaya{gap_hi}. "
                     f"Apke liye 2 slots ready hain: {s1} ya {s2}. "
-                    f"Reply 1 for {s1}, 2 for {s2}, ya jo time ho, bata dijiye.")
+                    f"Reply 1 karein {s1} ke liye, Reply 2 karein {s2} ke liye, "
+                    f"ya jo time sahi ho bata dijiye.")
         cta = CTA_SLOT
     else:
         when_txt = f" due {fmt_date(due_date)}" if due_date else ""
         if lang == "en":
-            body = (f"{opener} Your {service_txt or noun} is due"
-                    f"{when_txt}{f' — {months} months since your last visit' if months else ''}. "
+            body = (f"{opener} Your {service_txt or noun} is due{when_txt}{gap_en}. "
                     f"{ask}")
         else:
             body = (f"{opener} Aapki {service_txt or noun} ka time ho gaya"
-                    f"{when_txt}{f' — pichhli visit se {months} months' if months else ''}. "
-                    f"{ask}")
+                    f"{when_txt}{gap_hi}. {ask}")
         cta = CTA_BINARY
     rationale = ("Customer-scoped recall sent as the merchant; due interval, service and "
                  "slot labels come verbatim from the trigger payload, and the language "
@@ -1014,16 +1020,16 @@ def h_lapsed(ctx):
     gap = ""
     if days is not None and days >= 21:
         gap = (f"it's been {int(days)} days since your last visit" if lang == "en"
-               else f"{int(days)} days ho gaye aapki last visit ko")
+               else f"aapki last visit ko {int(days)} days ho gaye hain")
     elif months:
         plural = "" if months == 1 else "s"
         gap = (f"it's been {months} month{plural}" if lang == "en"
-               else f"{months} month{plural} ho gaye")
+               else f"aapki last visit ko {months} month{plural} ho gaye hain")
     elif days and days > 7:
         weeks = days // 7
         plural = "" if weeks == 1 else "s"
         gap = (f"it's been about {weeks} week{plural}" if lang == "en"
-               else f"kareeb {weeks} week ho gaye")
+               else f"aapki last visit ko kareeb {weeks} week ho gaye hain")
     services = k.get("services") or []
     focus = (k.get("prefs") or {}).get("training_focus") or (services[-1] if services else "")
     focus_txt = f" — your focus was {humanize(focus)}" if focus and lang == "en" else \
@@ -1070,8 +1076,9 @@ def h_appointment(ctx):
         body = (f"{opener} Yaad dilana hai: kal aapka appointment hai{slot_txt}.{pref_txt} "
                 f"Reply YES to confirm, ya jo time sahi ho bata dijiye.")
     rationale = ("Appointment reminder: no time was present in the trigger payload, so "
-                 "none was invented — the confirmation ask is grounded on their stored "
-                 "slot preference and consented reminder opt-in.")
+                 "none was invented — the confirmation ask is a single binary step"
+                 + (f" grounded on their stored {pref} slot preference" if pref else "")
+                 + ", in the language they asked for.")
     plan = {"type": "schedule", "slots": [slot] if slot else []}
     return ctx.msg(body, CTA_BINARY, rationale, plan=plan)
 
@@ -1090,10 +1097,11 @@ def h_refill(ctx):
     offer_txt = ""
     if offer:
         title = G.offer_title(offer)
-        offer_txt = (f" {title} applies." if lang == "en" else f" {title} lagu hai.")
+        offer_txt = (f" {title} applies." if lang == "en" else f" {title} apply hota hai.")
     if molecules:
         mol_txt = ", ".join(molecules)
-        when = f" run out on {fmt_date(runs_out)}" if runs_out else ""
+        when = (f" run out on {fmt_date(runs_out)}" if lang == "en"
+                else f" {fmt_date(runs_out)} ko khatam ho rahe hain") if runs_out else ""
         home_txt = ""
         if delivery and "delivery" not in offer_txt.lower():
             home_txt = (" Free home delivery to your saved address." if lang == "en"

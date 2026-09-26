@@ -82,8 +82,10 @@ def code_mix_tail(merchant, key, category=None) -> str:
 
 
 def customer_lang(customer) -> str:
-    """'en' | 'hi_en' | 'hi'. Derived from identity.language_pref."""
-    pref = str(((customer or {}).get("identity") or {}).get("language_pref") or "").lower()
+    """'en' | 'hi_en' | 'hi'. Accepts a raw CustomerContext or customer_facts()."""
+    c = customer or {}
+    ident = c.get("identity") or (c.get("raw") or {}).get("identity") or {}
+    pref = str(ident.get("language_pref") or c.get("language") or "").lower()
     if "hi" in pref and ("mix" in pref or "en" in pref):
         return "hi_en"
     if pref.strip() in ("hi", "hindi"):
