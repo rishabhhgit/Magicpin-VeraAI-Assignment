@@ -1,0 +1,17 @@
+# credentials — never commit
+.groq_key
+.judge_key
+.env
+*.pem
+
+# generated dataset (rebuild: python3 dataset/generate_dataset.py --seed-dir dataset --out expanded)
+expanded/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# os / logs
+.DS_Store
+*.log
